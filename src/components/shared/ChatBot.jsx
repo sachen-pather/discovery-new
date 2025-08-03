@@ -4,10 +4,10 @@ const ChatBot = ({
   showChatbot,
   setShowChatbot,
   chatMessages,
+  setChatMessages,
   chatInput,
   setChatInput,
   handleSendMessage,
-  financialData,
   realAnalysisResults,
   userProfile,
 }) => {
@@ -18,61 +18,47 @@ const ChatBot = ({
     import.meta.env.VITE_GEMINI_API_KEY || "YOUR_GEMINI_API_KEY_HERE";
   const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
 
+  // Check if we have real financial data
+  const hasFinancialData =
+    realAnalysisResults && realAnalysisResults.total_income;
+
   // Prepare financial context for AI
   const getFinancialContext = () => {
-    const hasRealData = realAnalysisResults && realAnalysisResults.total_income;
-
-    if (hasRealData) {
-      // Use real data from uploaded CSV
-      const savingsRate = (
-        (realAnalysisResults.available_income /
-          realAnalysisResults.total_income) *
-        100
-      ).toFixed(1);
-      const categoryData = Object.entries(
-        realAnalysisResults.category_breakdown
-      )
-        .filter(([_, data]) => data.amount > 0)
-        .map(
-          ([name, data]) =>
-            `${name}: R${data.amount.toLocaleString()} (${data.percentage.toFixed(
-              1
-            )}%)`
-        )
-        .join(", ");
-
-      const potentialSavings = Object.values(
-        realAnalysisResults.suggestions
-      ).reduce((sum, s) => sum + (s.potential_savings || 0), 0);
-
-      return {
-        hasRealData: true,
-        monthlyIncome: realAnalysisResults.total_income,
-        monthlyExpenses: realAnalysisResults.total_expenses,
-        availableIncome: realAnalysisResults.available_income,
-        savingsRate: savingsRate,
-        categoryBreakdown: categoryData,
-        potentialMonthlySavings: potentialSavings,
-        transactionCount: Object.values(
-          realAnalysisResults.category_breakdown
-        ).reduce((sum, cat) => sum + cat.count, 0),
-      };
-    } else {
-      // Use demo data
-      return {
-        hasRealData: false,
-        monthlyIncome: financialData.totalIncome,
-        monthlyExpenses: financialData.totalExpenses,
-        availableIncome: financialData.disposableIncome,
-        savingsRate: (
-          (financialData.disposableIncome / financialData.totalIncome) *
-          100
-        ).toFixed(1),
-        categoryBreakdown: "Demo data - upload CSV for real analysis",
-        potentialMonthlySavings: 3500,
-        transactionCount: "demo",
-      };
+    if (!hasFinancialData) {
+      return null;
     }
+
+    const savingsRate = (
+      (realAnalysisResults.available_income /
+        realAnalysisResults.total_income) *
+      100
+    ).toFixed(1);
+
+    const categoryData = Object.entries(realAnalysisResults.category_breakdown)
+      .filter(([_, data]) => data.amount > 0)
+      .map(
+        ([name, data]) =>
+          `${name}: R${data.amount.toLocaleString()} (${data.percentage.toFixed(
+            1
+          )}%)`
+      )
+      .join(", ");
+
+    const potentialSavings = Object.values(
+      realAnalysisResults.suggestions
+    ).reduce((sum, s) => sum + (s.potential_savings || 0), 0);
+
+    return {
+      monthlyIncome: realAnalysisResults.total_income,
+      monthlyExpenses: realAnalysisResults.total_expenses,
+      availableIncome: realAnalysisResults.available_income,
+      savingsRate: savingsRate,
+      categoryBreakdown: categoryData,
+      potentialMonthlySavings: potentialSavings,
+      transactionCount: Object.values(
+        realAnalysisResults.category_breakdown
+      ).reduce((sum, cat) => sum + cat.count, 0),
+    };
   };
 
   const generateSystemPrompt = (context) => {
@@ -84,27 +70,18 @@ USER PROFILE:
 - Age: ${userProfile.age}
 - Risk Tolerance: ${userProfile.riskTolerance}
 
-CURRENT FINANCIAL DATA:
-${
-  context.hasRealData
-    ? "REAL DATA FROM USER'S BANK STATEMENT:"
-    : "DEMO DATA (User needs to upload CSV for real analysis):"
-}
+CURRENT FINANCIAL DATA FROM USER'S BANK STATEMENT:
 - Monthly Income: R${context.monthlyIncome.toLocaleString()}
 - Monthly Expenses: R${context.monthlyExpenses.toLocaleString()}
 - Available Income: R${context.availableIncome.toLocaleString()}
 - Savings Rate: ${context.savingsRate}%
 - Spending Categories: ${context.categoryBreakdown}
 - Potential Monthly Savings: R${context.potentialMonthlySavings.toLocaleString()}
-${
-  context.hasRealData
-    ? `- Transactions Analyzed: ${context.transactionCount}`
-    : ""
-}
+- Transactions Analyzed: ${context.transactionCount}
 
 SOUTH AFRICAN CONTEXT:
 - Currency: South African Rand (ZAR)
-- Consider local banks: FNB, Standard Bank, Nedbank, ABSA, Capitec
+- Consider local banks: Discovery Bank
 - Local stores: Shoprite, Pick n Pay, Checkers, Woolworths, Spar
 - Local transport: Taxi, Uber, Bolt
 - Local services: DSTV, Vodacom, MTN, Eskom (electricity)
@@ -117,16 +94,57 @@ RESPONSE GUIDELINES:
 4. Suggest realistic South African solutions
 5. Keep responses concise (2-3 sentences max)
 6. Use South African Rand (R) for all amounts
-7. If using demo data, encourage them to upload their CSV for personalized advice
-8. Consider Discovery Vitality integration opportunities
-9. Focus on practical South African financial products and services
+7. Consider Discovery Vitality integration opportunities
+8. Focus on practical South African financial products and services
 
-Remember: You're helping South Africans improve their financial wellness through Discovery Health's AI platform.`;
+Remember: You're helping South Africans improve their financial wellness through Discovery Health's AI platform using their real financial data.`;
+  };
+
+  const generateGeneralSystemPrompt = () => {
+    return `You are a professional South African financial advisor AI assistant for Discovery Health's Financial AI app. The user hasn't uploaded their bank statement yet, so provide general financial advice and guidance.
+
+USER PROFILE:
+- Name: ${userProfile.name}
+- Vitality Status: ${userProfile.vitalityStatus}
+- Age: ${userProfile.age}
+- Risk Tolerance: ${userProfile.riskTolerance}
+
+SOUTH AFRICAN CONTEXT:
+- Currency: South African Rand (ZAR)
+- Consider local banks: Discovery Bank
+- Local stores: Shoprite, Pick n Pay, Checkers, Woolworths, Spar
+- Local transport: Taxi, Uber, Bolt
+- Local services: DSTV, Vodacom, MTN, Eskom (electricity)
+- Consider Discovery Vitality benefits and points system
+
+RESPONSE GUIDELINES:
+1. Be conversational, friendly, and encouraging
+2. Provide general financial advice suitable for South Africans
+3. Keep responses concise (2-3 sentences max)
+4. Use South African Rand (R) for examples
+5. Encourage them to upload their bank statement for personalized advice
+6. Focus on practical South African financial products and services
+7. Consider Discovery Vitality integration opportunities
+
+Remember: You're helping South Africans with general financial wellness. Encourage them to upload their bank statement for personalized advice based on their real spending patterns.`;
   };
 
   const callGeminiAPI = async (userMessage, context) => {
     try {
-      const systemPrompt = generateSystemPrompt(context);
+      const systemPrompt = context
+        ? generateSystemPrompt(context)
+        : generateGeneralSystemPrompt();
+      const promptText = context
+        ? `${systemPrompt}
+
+USER QUESTION: ${userMessage}
+
+Please provide a helpful, personalized response based on the user's financial data above.`
+        : `${systemPrompt}
+
+USER QUESTION: ${userMessage}
+
+Please provide helpful general financial advice. Since they haven't uploaded their bank statement yet, remind them that uploading it will allow for personalized advice based on their real spending patterns.`;
 
       const response = await fetch(GEMINI_API_URL, {
         method: "POST",
@@ -138,11 +156,7 @@ Remember: You're helping South Africans improve their financial wellness through
             {
               parts: [
                 {
-                  text: `${systemPrompt}
-
-USER QUESTION: ${userMessage}
-
-Please provide a helpful, personalized response based on the user's financial data above.`,
+                  text: promptText,
                 },
               ],
             },
@@ -187,60 +201,35 @@ Please provide a helpful, personalized response based on the user's financial da
       }
     } catch (error) {
       console.error("Gemini API Error:", error);
-
-      // Fallback responses based on financial data
-      const fallbackResponses = [
-        `Based on your ${
-          context.hasRealData ? "real" : "demo"
-        } data showing R${context.availableIncome.toLocaleString()} available monthly, consider increasing your emergency fund to cover 3-6 months of expenses.`,
-        `Your current savings rate of ${context.savingsRate}% ${
-          parseFloat(context.savingsRate) >= 15
-            ? "is excellent! Keep it up."
-            : "could be improved. Aim for at least 15-20%."
-        } `,
-        `With potential savings of R${context.potentialMonthlySavings.toLocaleString()}/month, you could build substantial wealth through compound investing over time.`,
-        `${
-          context.hasRealData
-            ? "Your real spending data shows"
-            : "Demo data suggests"
-        } opportunities to optimize your budget. Focus on the largest expense categories first.`,
-      ];
-
-      return fallbackResponses[
-        Math.floor(Math.random() * fallbackResponses.length)
-      ];
+      return "I'm having trouble connecting right now. Please try again or contact support if the issue persists.";
     }
   };
 
   const handleAIMessage = async () => {
-    if (!chatInput.trim()) return;
+    if (!chatInput.trim() || isLoading) return;
 
-    const userMessage = chatInput;
+    const userMessage = chatInput.trim();
     setChatInput("");
     setIsLoading(true);
 
-    // Add user message immediately
+    // Add user message
     const userChatMessage = { sender: "user", text: userMessage };
-    handleSendMessage(); // This will handle the user message
+    setChatMessages((prevMessages) => [...prevMessages, userChatMessage]);
 
     try {
-      const context = getFinancialContext();
+      const context = hasFinancialData ? getFinancialContext() : null;
       const aiResponse = await callGeminiAPI(userMessage, context);
 
       // Add AI response
       const aiMessage = { sender: "ai", text: aiResponse };
-      setTimeout(() => {
-        handleSendMessage(); // Simulate the AI response addition
-      }, 500);
+      setChatMessages((prevMessages) => [...prevMessages, aiMessage]);
     } catch (error) {
       console.error("Chat error:", error);
       const errorMessage = {
         sender: "ai",
         text: "I'm having trouble connecting right now. Please try again or contact support if the issue persists.",
       };
-      setTimeout(() => {
-        handleSendMessage();
-      }, 500);
+      setChatMessages((prevMessages) => [...prevMessages, errorMessage]);
     } finally {
       setIsLoading(false);
     }
@@ -253,29 +242,35 @@ Please provide a helpful, personalized response based on the user's financial da
     }
   };
 
-  // Suggested questions based on user's financial data
+  // Suggested questions based on whether we have financial data or not
   const getSuggestedQuestions = () => {
-    const context = getFinancialContext();
-    const questions = [];
+    if (hasFinancialData) {
+      const context = getFinancialContext();
+      const questions = [];
 
-    if (context.hasRealData) {
       if (parseFloat(context.savingsRate) < 10) {
-        questions.push("How can I improve my low savings rate?");
+        questions.push("How can I improve my savings rate?");
       }
       if (context.potentialMonthlySavings > 1000) {
         questions.push("What's the best way to invest my potential savings?");
       }
       questions.push("How can I optimize my largest spending categories?");
       questions.push("What emergency fund amount should I target?");
-    } else {
-      questions.push("How do I start building an emergency fund?");
-      questions.push("What's a good savings rate to aim for?");
-      questions.push("Should I focus on debt or savings first?");
-    }
 
-    return questions.slice(0, 3);
+      return questions.slice(0, 3);
+    } else {
+      // General financial questions for users without uploaded data
+      return [
+        "How much should I be saving each month?",
+        "What's the best way to start budgeting?",
+        "How do I build an emergency fund?",
+        "Should I pay off debt or save first?",
+        "What are good investment options in South Africa?",
+      ].slice(0, 3);
+    }
   };
 
+  // Always show the full chatbot interface
   return (
     <div className="absolute bottom-20 right-4 w-80 bg-white rounded-xl shadow-lg border border-discovery-gold/20 z-50 max-h-96 flex flex-col">
       <div className="p-4 border-b border-discovery-gold/20 bg-gradient-to-r from-discovery-gold to-discovery-blue text-white rounded-t-xl">
@@ -283,9 +278,9 @@ Please provide a helpful, personalized response based on the user's financial da
           <div>
             <h3 className="font-semibold">Financial AI Assistant</h3>
             <p className="text-xs text-white/90">
-              {realAnalysisResults
+              {hasFinancialData
                 ? "Powered by your real data"
-                : "Upload CSV for personalized advice"}
+                : "Ready to help with general advice"}
             </p>
           </div>
           <button
@@ -309,7 +304,9 @@ Please provide a helpful, personalized response based on the user's financial da
               Hi {userProfile.name}! I'm your AI financial assistant.
             </p>
             <p className="text-xs mt-1">
-              I can provide personalized advice based on your financial data!
+              {hasFinancialData
+                ? "I can provide personalized advice based on your financial data!"
+                : "I can help with general financial advice. Upload your bank statement for personalized insights!"}
             </p>
 
             {/* Suggested Questions */}
@@ -374,7 +371,11 @@ Please provide a helpful, personalized response based on the user's financial da
             value={chatInput}
             onChange={(e) => setChatInput(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Ask about your finances..."
+            placeholder={
+              hasFinancialData
+                ? "Ask about your finances..."
+                : "Ask me about financial planning..."
+            }
             disabled={isLoading}
             className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-discovery-gold focus:border-transparent disabled:bg-gray-100"
           />
@@ -391,16 +392,16 @@ Please provide a helpful, personalized response based on the user's financial da
         <div className="mt-2 text-center">
           <span
             className={`text-xs px-2 py-1 rounded-full ${
-              realAnalysisResults
+              hasFinancialData
                 ? "bg-green-100 text-green-800"
-                : "bg-yellow-100 text-yellow-800"
+                : "bg-blue-100 text-blue-800"
             }`}
           >
-            {realAnalysisResults
+            {hasFinancialData
               ? `✓ Using your real data (${Object.values(
-                  realAnalysisResults.category_breakdown
+                  realAnalysisResults?.category_breakdown || {}
                 ).reduce((sum, cat) => sum + cat.count, 0)} transactions)`
-              : "⚠ Using demo data - upload CSV for personalized advice"}
+              : "💡 Upload bank statement for personalized advice"}
           </span>
         </div>
       </div>

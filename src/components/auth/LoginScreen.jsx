@@ -173,7 +173,7 @@ const LoginScreen = ({
           {/* Footer */}
           <div className="text-center mt-4">
             <p className="text-[10px] text-gray-500">
-              Powered by Discovery Health • Secure & Encrypted
+              Powered by Discovery • Secure & Encrypted
             </p>
           </div>
         </div>

@@ -347,7 +347,7 @@ const Budget = ({ financialData, userProfile, realAnalysisResults }) => {
             Calculation Assumptions:
           </h4>
           <div className="text-xs text-gray-600 space-y-1">
-            <p>• 8% annual return (compounded monthly)</p>
+            <p>• 6.75% annual return (compounded monthly)</p>
             <p>• Fixed monthly contributions at month-end</p>
             <p>
               • No taxes considered (use TFSA or retirement annuity for tax

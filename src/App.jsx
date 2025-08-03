@@ -9,8 +9,9 @@ import Budget from "./components/budget/Budget";
 import SettingsPanel from "./components/layout/SettingsPanel";
 import NotificationPanel from "./components/layout/NotificationPanel";
 import ChatBot from "./components/shared/ChatBot";
-import { uploadCSV } from "./utils/api";
 import "./styles/globals.css";
+import { uploadCSV, uploadPDF } from "./utils/api";
+import Vitality from "./components/vitality/Vitality";
 
 const App = () => {
   // Authentication state
@@ -293,9 +294,15 @@ const App = () => {
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
     if (file) {
+      const fileExtension = file.name.toLowerCase().split(".").pop();
+
       // Validate file type
-      if (!file.name.endsWith(".csv")) {
-        addNotification("error", "Invalid File", "Please upload a CSV file");
+      if (!["csv", "pdf"].includes(fileExtension)) {
+        addNotification(
+          "error",
+          "Invalid File",
+          "Please upload a CSV or PDF file"
+        );
         return;
       }
 
@@ -303,8 +310,16 @@ const App = () => {
       setIsAnalyzing(true);
 
       try {
-        // Call your Flask API using the utility function
-        const analysisData = await uploadCSV(file);
+        let analysisData;
+
+        // Call appropriate API based on file type
+        if (fileExtension === "csv") {
+          console.log("📄 Processing CSV file...");
+          analysisData = await uploadCSV(file);
+        } else if (fileExtension === "pdf") {
+          console.log("📄 Processing PDF file...");
+          analysisData = await uploadPDF(file);
+        }
 
         // Process the response and update state
         setRealAnalysisResults(analysisData);
@@ -336,7 +351,7 @@ const App = () => {
           categoriesIdentified: Object.keys(analysisData.category_breakdown)
             .length,
           savingsOpportunities: Object.values(analysisData.suggestions).filter(
-            (s) => s.potential_savings > 0
+            (s) => s && typeof s === "object" && s.potential_savings > 0
           ).length,
         });
 
@@ -344,21 +359,23 @@ const App = () => {
         addNotification(
           "success",
           "Analysis Complete",
-          "Your bank statement has been successfully analyzed"
+          `Your ${fileExtension.toUpperCase()} file has been successfully ${
+            fileExtension === "pdf" ? "extracted and " : ""
+          }analyzed`
         );
       } catch (error) {
         console.error("Analysis error:", error);
         addNotification(
           "error",
           "Analysis Failed",
-          error.message || "Failed to analyze bank statement"
+          error.message ||
+            `Failed to analyze ${fileExtension.toUpperCase()} file`
         );
       } finally {
         setIsAnalyzing(false);
       }
     }
   };
-
   const addNotification = (type, title, message) => {
     const newNotification = {
       id: Date.now(),
@@ -512,6 +529,14 @@ const App = () => {
                   realAnalysisResults={realAnalysisResults}
                 />
               )}
+
+              {activeTab === "vitality" && (
+                <Vitality
+                  userProfile={userProfile}
+                  realAnalysisResults={realAnalysisResults}
+                  financialData={financialData}
+                />
+              )}
             </>
           )}
         </div>
@@ -527,11 +552,13 @@ const App = () => {
         </div>
 
         {/* Chatbot */}
+        {/* Chatbot */}
         {showChatbot && (
           <ChatBot
             showChatbot={showChatbot}
             setShowChatbot={setShowChatbot}
             chatMessages={chatMessages}
+            setChatMessages={setChatMessages} // ← ADD THIS LINE
             chatInput={chatInput}
             setChatInput={setChatInput}
             handleSendMessage={handleSendMessage}

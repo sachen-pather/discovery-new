@@ -5,6 +5,7 @@ const TabNavigation = ({ activeTab, setActiveTab }) => {
     { id: "dashboard", label: "Dashboard", icon: "🏠" },
     { id: "analysis", label: "Analysis", icon: "📊" },
     { id: "budget", label: "Budget", icon: "📈" },
+    { id: "vitality", label: "Vitality", icon: "⭐" },
   ];
 
   return (
