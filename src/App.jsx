@@ -6,12 +6,19 @@ import TabNavigation from "./components/layout/TabNavigation";
 import Dashboard from "./components/dashboard/Dashboard";
 import Analysis from "./components/analysis/Analysis";
 import Budget from "./components/budget/Budget";
+import Debt from "./components/debt/Debt";
 import SettingsPanel from "./components/layout/SettingsPanel";
 import NotificationPanel from "./components/layout/NotificationPanel";
 import ChatBot from "./components/shared/ChatBot";
 import "./styles/globals.css";
-import { uploadCSV, uploadPDF } from "./utils/api";
+import {
+  uploadCSV,
+  uploadPDF,
+  getDebtAnalysis,
+  getInvestmentAnalysis,
+} from "./utils/api"; // Add the new imports
 import Vitality from "./components/vitality/Vitality";
+import Investment from "./components/investment/Investment";
 
 const App = () => {
   // Authentication state
@@ -30,6 +37,12 @@ const App = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState("sample1");
   const [realAnalysisResults, setRealAnalysisResults] = useState(null);
+
+  // Add debt and investment analysis state for ChatBot
+  const [debtAnalysis, setDebtAnalysis] = useState(null);
+  const [investmentAnalysis, setInvestmentAnalysis] = useState(null);
+  const [isLoadingFinancialAnalysis, setIsLoadingFinancialAnalysis] =
+    useState(false);
 
   // UI state
   const [showSettings, setShowSettings] = useState(false);
@@ -158,6 +171,50 @@ const App = () => {
     password: "password123",
   };
 
+  // Add function to load debt and investment analysis for ChatBot
+  const loadFinancialAnalysisForChatBot = async (analysisData) => {
+    if (!analysisData?.available_income || analysisData.available_income <= 0) {
+      console.log("No available income for debt/investment analysis");
+      return;
+    }
+
+    setIsLoadingFinancialAnalysis(true);
+
+    try {
+      console.log("🔄 Loading debt and investment analysis for ChatBot...");
+
+      // Load debt analysis
+      try {
+        const debtResult = await getDebtAnalysis(analysisData.available_income);
+        setDebtAnalysis(debtResult);
+        console.log("✅ Debt analysis loaded for ChatBot:", debtResult);
+      } catch (error) {
+        console.error("❌ Error loading debt analysis for ChatBot:", error);
+      }
+
+      // Load investment analysis
+      try {
+        const investmentResult = await getInvestmentAnalysis(
+          analysisData.available_income
+        );
+        setInvestmentAnalysis(investmentResult);
+        console.log(
+          "✅ Investment analysis loaded for ChatBot:",
+          investmentResult
+        );
+      } catch (error) {
+        console.error(
+          "❌ Error loading investment analysis for ChatBot:",
+          error
+        );
+      }
+    } catch (error) {
+      console.error("❌ Error loading financial analysis for ChatBot:", error);
+    } finally {
+      setIsLoadingFinancialAnalysis(false);
+    }
+  };
+
   // Helper functions (define before they're used)
   const getCategoryIcon = (category) => {
     const iconMap = {
@@ -267,6 +324,13 @@ const App = () => {
     }
   }, [isAuthenticated]);
 
+  // Load financial analysis when realAnalysisResults changes
+  useEffect(() => {
+    if (realAnalysisResults) {
+      loadFinancialAnalysisForChatBot(realAnalysisResults);
+    }
+  }, [realAnalysisResults]);
+
   const handleLogin = (e) => {
     e.preventDefault();
     setLoginError("");
@@ -289,6 +353,9 @@ const App = () => {
     setShowSettings(false);
     setShowNotifications(false);
     setShowChatbot(false);
+    // Clear financial analysis data
+    setDebtAnalysis(null);
+    setInvestmentAnalysis(null);
   };
 
   const handleFileUpload = async (event) => {
@@ -376,6 +443,7 @@ const App = () => {
       }
     }
   };
+
   const addNotification = (type, title, message) => {
     const newNotification = {
       id: Date.now(),
@@ -488,14 +556,18 @@ const App = () => {
         )}
 
         {/* Loading State */}
-        {isAnalyzing && (
+        {(isAnalyzing || isLoadingFinancialAnalysis) && (
           <div className="p-6 text-center">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-discovery-gold mb-4"></div>
             <p className="text-gray-600">
-              Analyzing your bank statement with AI...
+              {isAnalyzing
+                ? "Analyzing your bank statement with AI..."
+                : "Loading debt and investment analysis..."}
             </p>
             <p className="text-sm text-gray-500">
-              Processing transactions and identifying patterns
+              {isAnalyzing
+                ? "Processing transactions and identifying patterns"
+                : "Preparing comprehensive financial insights"}
             </p>
           </div>
         )}
@@ -529,7 +601,20 @@ const App = () => {
                   realAnalysisResults={realAnalysisResults}
                 />
               )}
-
+              {activeTab === "debt" && (
+                <Debt
+                  financialData={financialData}
+                  userProfile={userProfile}
+                  realAnalysisResults={realAnalysisResults}
+                />
+              )}
+              {activeTab === "investment" && (
+                <Investment
+                  financialData={financialData}
+                  userProfile={userProfile}
+                  realAnalysisResults={realAnalysisResults}
+                />
+              )}
               {activeTab === "vitality" && (
                 <Vitality
                   userProfile={userProfile}
@@ -551,20 +636,21 @@ const App = () => {
           </button>
         </div>
 
-        {/* Chatbot */}
-        {/* Chatbot */}
+        {/* Enhanced Chatbot with Debt and Investment Analysis */}
         {showChatbot && (
           <ChatBot
             showChatbot={showChatbot}
             setShowChatbot={setShowChatbot}
             chatMessages={chatMessages}
-            setChatMessages={setChatMessages} // ← ADD THIS LINE
+            setChatMessages={setChatMessages}
             chatInput={chatInput}
             setChatInput={setChatInput}
             handleSendMessage={handleSendMessage}
             financialData={financialData}
             realAnalysisResults={realAnalysisResults}
             userProfile={userProfile}
+            debtAnalysis={debtAnalysis} // Add debt analysis
+            investmentAnalysis={investmentAnalysis} // Add investment analysis
           />
         )}
       </div>

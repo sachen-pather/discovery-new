@@ -40,6 +40,76 @@ export const uploadPDF = async (file) => {
   return response.json();
 };
 
+export const getDebtAnalysis = async (availableMonthly) => {
+  console.log("🔄 getDebtAnalysis called with:", availableMonthly);
+
+  const response = await fetch(`${API_BASE_URL}/debt-analysis`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      available_monthly: availableMonthly,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || "Debt analysis failed");
+  }
+
+  return response.json();
+};
+
+export const getInvestmentAnalysis = async (availableMonthly) => {
+  console.log("🔄 getInvestmentAnalysis called with:", availableMonthly);
+
+  const response = await fetch(`${API_BASE_URL}/investment-analysis`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      available_monthly: availableMonthly,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || "Investment analysis failed");
+  }
+
+  return response.json();
+};
+
+export const getComprehensiveAnalysis = async (
+  availableIncome,
+  optimizedAvailableIncome
+) => {
+  console.log("🔄 getComprehensiveAnalysis called with:", {
+    availableIncome,
+    optimizedAvailableIncome,
+  });
+
+  const response = await fetch(`${API_BASE_URL}/comprehensive-analysis`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      available_income: availableIncome,
+      optimized_available_income: optimizedAvailableIncome,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || "Comprehensive analysis failed");
+  }
+
+  return response.json();
+};
+
 export const healthCheck = async () => {
   try {
     const response = await fetch(`${API_BASE_URL}/health`);
@@ -49,12 +119,29 @@ export const healthCheck = async () => {
   }
 };
 
+export const getFeatures = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/features`);
+    if (!response.ok) {
+      throw new Error("Failed to fetch features");
+    }
+    return response.json();
+  } catch (error) {
+    console.error("Error fetching features:", error);
+    return null;
+  }
+};
+
 export const apiConfig = {
   baseURL: API_BASE_URL,
   endpoints: {
     uploadCSV: "/upload-csv",
     uploadPDF: "/upload-pdf",
+    debtAnalysis: "/debt-analysis",
+    investmentAnalysis: "/investment-analysis",
+    comprehensiveAnalysis: "/comprehensive-analysis",
     health: "/health",
+    features: "/features",
   },
 };
 
@@ -62,6 +149,10 @@ export const apiConfig = {
 export default {
   uploadCSV,
   uploadPDF,
+  getDebtAnalysis,
+  getInvestmentAnalysis,
+  getComprehensiveAnalysis,
   healthCheck,
+  getFeatures,
   apiConfig,
 };

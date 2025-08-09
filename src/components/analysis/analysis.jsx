@@ -1,4 +1,8 @@
 import React from "react";
+import { Pie } from "react-chartjs-2";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
+
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 const Analysis = ({ financialData, analysisResults, realAnalysisResults }) => {
   const getIconForCategory = (categoryName) => {
@@ -16,7 +20,6 @@ const Analysis = ({ financialData, analysisResults, realAnalysisResults }) => {
   };
 
   const getDisplayData = () => {
-    // Use real analysis results if available, otherwise fall back to mock data
     if (realAnalysisResults) {
       return {
         totalIncome: realAnalysisResults.total_income,
@@ -52,7 +55,6 @@ const Analysis = ({ financialData, analysisResults, realAnalysisResults }) => {
   const generateInsightsFromBackend = (backendData) => {
     const insights = [];
 
-    // Generate insights from suggestions
     if (backendData.suggestions) {
       Object.entries(backendData.suggestions).forEach(
         ([category, suggestion]) => {
@@ -76,7 +78,6 @@ const Analysis = ({ financialData, analysisResults, realAnalysisResults }) => {
       );
     }
 
-    // Add financial health insight
     const savingsRate =
       backendData.total_income > 0
         ? (backendData.available_income / backendData.total_income) * 100
@@ -110,6 +111,52 @@ const Analysis = ({ financialData, analysisResults, realAnalysisResults }) => {
   };
 
   const displayData = getDisplayData();
+
+  const getChartData = () => {
+    const sortedCategories = [...displayData.categories].sort(
+      (a, b) => b.amount - a.amount
+    );
+
+    const topCategories = sortedCategories.slice(0, 6);
+    const remainingCategories = sortedCategories.slice(6);
+
+    const remainingAmount = remainingCategories.reduce(
+      (sum, cat) => sum + cat.amount,
+      0
+    );
+    const totalAmount =
+      topCategories.reduce((sum, cat) => sum + cat.amount, 0) + remainingAmount;
+
+    const finalCategories = [...topCategories];
+    if (remainingAmount > 0) {
+      finalCategories.push({
+        name: "Remaining categories",
+        amount: remainingAmount,
+        percentage: (remainingAmount / totalAmount) * 100,
+      });
+    }
+
+    return {
+      labels: finalCategories.map(
+        (c) => `${c.name} (${c.percentage.toFixed(1)}%)`
+      ),
+      datasets: [
+        {
+          data: finalCategories.map((c) => c.amount),
+          backgroundColor: [
+            "#FF6384",
+            "#36A2EB",
+            "#FFCE56",
+            "#4BC0C0",
+            "#9966FF",
+            "#FF9F40",
+            "#D3D3D3", // grey for remaining
+          ],
+          borderWidth: 1,
+        },
+      ],
+    };
+  };
 
   return (
     <div className="space-y-6">
@@ -153,134 +200,96 @@ const Analysis = ({ financialData, analysisResults, realAnalysisResults }) => {
         </div>
       )}
 
-      {/* Spending Categories */}
+      {/* Pie Chart */}
       <div className="bg-white p-6 rounded-xl border border-discovery-gold/20 shadow-sm">
         <h3 className="text-lg font-semibold mb-4 flex items-center text-discovery-blue">
           <span className="mr-2 text-discovery-gold text-xl">📊</span>
-          Spending Breakdown
+          Expense Distribution
         </h3>
-
-        <div className="space-y-3">
-          {displayData.categories
-            .sort((a, b) => b.amount - a.amount)
-            .map((category, idx) => {
-              const icon = getIconForCategory(category.name);
-
-              return (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between p-3 border border-discovery-gold/20 rounded-lg"
-                >
-                  <div className="flex items-center space-x-3">
-                    <div
-                      className={`p-2 rounded-lg ${
-                        category.color || "bg-gray-500"
-                      }`}
-                    >
-                      <span className="text-white text-lg">{icon}</span>
-                    </div>
-                    <div>
-                      <p className="font-medium text-discovery-blue">
-                        {category.name}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        {category.percentage?.toFixed(1) || "0.0"}% of expenses
-                        {category.count && ` • ${category.count} transactions`}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold text-discovery-blue">
-                      R{category.amount.toLocaleString()}
-                    </p>
-                    {category.savings > 0 && (
-                      <p className="text-sm text-discovery-gold">
-                        Save R{category.savings.toLocaleString()}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+        <div className="h-64">
+          <Pie
+            data={getChartData()}
+            options={{
+              responsive: true,
+              maintainAspectRatio: false,
+              cutout: "60%", // makes it a donut chart
+              plugins: {
+                legend: {
+                  position: "right",
+                  labels: {
+                    boxWidth: 12,
+                    padding: 8,
+                    font: {
+                      size: 12,
+                    },
+                    // Wrap long labels
+                    generateLabels: (chart) => {
+                      const original =
+                        ChartJS.overrides.pie.plugins.legend.labels
+                          .generateLabels;
+                      return original(chart).map((label) => {
+                        if (label.text.length > 18) {
+                          label.text = label.text.match(/.{1,18}/g).join("\n");
+                        }
+                        return label;
+                      });
+                    },
+                  },
+                },
+                tooltip: {
+                  callbacks: {
+                    label: function (context) {
+                      const label = context.label || "";
+                      const value = context.raw || 0;
+                      const total = context.dataset.data.reduce(
+                        (a, b) => a + b,
+                        0
+                      );
+                      const percentage = ((value / total) * 100).toFixed(1);
+                      return `${label}: R${value.toLocaleString()} (${percentage}%)`;
+                    },
+                  },
+                },
+              },
+            }}
+          />
         </div>
       </div>
 
       {/* AI Recommendations */}
-      <div className="bg-white p-6 rounded-xl border border-discovery-gold/20 shadow-sm">
-        <h3 className="text-lg font-semibold mb-4 text-discovery-blue">
-          {realAnalysisResults
-            ? "AI-Powered Recommendations"
-            : "AI Recommendations"}
-        </h3>
-        <div className="space-y-4">
-          {displayData.insights.map((insight, idx) => (
-            <div
-              key={idx}
-              className="p-4 border border-discovery-gold/20 rounded-lg"
-            >
-              <div className="flex items-start space-x-3">
+      {displayData.insights && displayData.insights.length > 0 && (
+        <div className="bg-gradient-to-r from-discovery-gold/10 to-discovery-blue/10 p-6 rounded-xl border border-discovery-gold/20">
+          <h3 className="text-lg font-semibold mb-4 text-discovery-blue">
+            AI-Powered Recommendations
+          </h3>
+          <div className="grid grid-cols-1 gap-3">
+            {displayData.insights.map((insight, idx) => (
+              <div
+                key={idx}
+                className="flex items-start space-x-3 p-3 bg-white rounded-lg border border-discovery-gold/20"
+              >
                 <div className="mt-1">
                   {insight.type === "warning" && (
-                    <span className="text-red-500 text-xl">⚠️</span>
+                    <span className="text-red-500 text-lg">⚠️</span>
                   )}
                   {insight.type === "opportunity" && (
-                    <span className="text-discovery-gold text-xl">🎯</span>
+                    <span className="text-discovery-gold text-lg">🎯</span>
                   )}
                   {insight.type === "positive" && (
-                    <span className="text-discovery-blue text-xl">✅</span>
+                    <span className="text-discovery-blue text-lg">✅</span>
                   )}
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-semibold text-discovery-blue">
+                  <p className="font-medium text-sm text-discovery-blue">
                     {insight.title}
-                  </h4>
-                  <p className="text-gray-600 text-sm mt-1">
-                    {insight.description}
                   </p>
-                  <p className="text-discovery-blue text-sm mt-2">
-                    {insight.suggestion}
-                  </p>
-                  <p className="text-discovery-gold font-medium text-sm mt-1">
+                  <p className="text-xs text-gray-600">{insight.suggestion}</p>
+                  <p className="text-xs text-discovery-gold font-medium">
                     {insight.impact}
                   </p>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Potential Savings Summary */}
-      {realAnalysisResults && (
-        <div className="bg-gradient-to-r from-discovery-gold/10 to-discovery-blue/10 p-6 rounded-xl border border-discovery-gold/20">
-          <h3 className="text-lg font-semibold mb-3 text-discovery-blue">
-            💰 Optimization Potential
-          </h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm text-gray-600">Current Savings Rate</p>
-              <p className="text-xl font-bold text-discovery-blue">
-                {realAnalysisResults.total_income > 0
-                  ? (
-                      (realAnalysisResults.available_income /
-                        realAnalysisResults.total_income) *
-                      100
-                    ).toFixed(1)
-                  : "0.0"}
-                %
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">
-                Total Potential Monthly Savings
-              </p>
-              <p className="text-xl font-bold text-discovery-gold">
-                R
-                {Object.values(realAnalysisResults.suggestions)
-                  .reduce((sum, s) => sum + (s.potential_savings || 0), 0)
-                  .toLocaleString()}
-              </p>
-            </div>
+            ))}
           </div>
         </div>
       )}

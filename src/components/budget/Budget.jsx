@@ -28,6 +28,15 @@ const Budget = ({ financialData, userProfile, realAnalysisResults }) => {
     { years: 25 },
   ];
 
+  const formatCompactNumber = (number) => {
+    if (number >= 1000000) {
+      return `R${(number / 1000000).toFixed(2)}M`;
+    } else if (number >= 1000) {
+      return `R${(number / 1000).toFixed(0)}K`;
+    }
+    return `R${number.toLocaleString()}`;
+  };
+
   const calculateCompoundGrowth = (monthlySaving, years) => {
     // Check if we have backend annuity data for current available income
     if (
@@ -157,9 +166,6 @@ const Budget = ({ financialData, userProfile, realAnalysisResults }) => {
                       Years
                     </th>
                     <th className="text-right py-2 text-discovery-blue">
-                      Monthly Savings
-                    </th>
-                    <th className="text-right py-2 text-discovery-blue">
                       Total Saved
                     </th>
                     <th className="text-right py-2 text-discovery-blue">
@@ -178,17 +184,14 @@ const Budget = ({ financialData, userProfile, realAnalysisResults }) => {
                     return (
                       <tr key={idx} className="border-b border-gray-100">
                         <td className="py-2 font-medium">{row.years}</td>
-                        <td className="py-2 text-right">
-                          R{currentAvailable.toLocaleString()}
+                        <td className="py-2 text-right text-xs">
+                          {formatCompactNumber(totalSaved)}
                         </td>
-                        <td className="py-2 text-right">
-                          R{totalSaved.toLocaleString()}
+                        <td className="py-2 text-right font-semibold text-discovery-blue text-xs">
+                          {formatCompactNumber(finalValue)}
                         </td>
-                        <td className="py-2 text-right font-semibold text-discovery-blue">
-                          R{finalValue.toLocaleString()}
-                        </td>
-                        <td className="py-2 text-right text-discovery-gold">
-                          R{interest.toLocaleString()}
+                        <td className="py-2 text-right text-discovery-gold text-xs">
+                          {formatCompactNumber(interest)}
                         </td>
                       </tr>
                     );
@@ -220,9 +223,6 @@ const Budget = ({ financialData, userProfile, realAnalysisResults }) => {
                       Years
                     </th>
                     <th className="text-right py-2 text-discovery-blue">
-                      Monthly Savings
-                    </th>
-                    <th className="text-right py-2 text-discovery-blue">
                       Total Saved
                     </th>
                     <th className="text-right py-2 text-discovery-blue">
@@ -252,9 +252,6 @@ const Budget = ({ financialData, userProfile, realAnalysisResults }) => {
                     return (
                       <tr key={idx} className="border-b border-gray-100">
                         <td className="py-2 font-medium">{row.years}</td>
-                        <td className="py-2 text-right">
-                          R{optimizedAvailable.toLocaleString()}
-                        </td>
                         <td className="py-2 text-right">
                           R{optimizedResult.totalSaved.toLocaleString()}
                         </td>
