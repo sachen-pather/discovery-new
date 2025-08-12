@@ -2,22 +2,25 @@ import React from "react";
 
 const Budget = ({ financialData, userProfile, realAnalysisResults }) => {
   const potentialMonthlySavings = realAnalysisResults
-    ? Object.values(realAnalysisResults.suggestions).reduce(
-        (sum, s) => sum + (s.potential_savings || 0),
-        0
-      )
+    ? realAnalysisResults.total_potential_savings || 0
     : 3500;
 
   const currentAvailable = realAnalysisResults
     ? realAnalysisResults.available_income
     : financialData.disposableIncome;
-  const optimizedAvailable = currentAvailable + potentialMonthlySavings;
+
+  const optimizedAvailable = realAnalysisResults
+    ? realAnalysisResults.optimized_available_income ||
+      currentAvailable + potentialMonthlySavings
+    : currentAvailable + potentialMonthlySavings;
+
   const totalIncome = realAnalysisResults
     ? realAnalysisResults.total_income
     : financialData.totalIncome;
 
   // Use backend annuity data if available
   const annuityData = realAnalysisResults?.annuity_projection;
+  const enhancedMode = realAnalysisResults?.enhanced_mode || false;
 
   const scenarioData = [
     { years: 1 },
@@ -42,18 +45,20 @@ const Budget = ({ financialData, userProfile, realAnalysisResults }) => {
     if (
       annuityData &&
       annuityData[years] &&
-      monthlySaving === currentAvailable
+      Math.abs(monthlySaving - currentAvailable) < 100 // Allow small variance
     ) {
       const backendResult = annuityData[years];
       return {
         totalSaved: Math.round(backendResult.total_contributions),
         finalValue: Math.round(backendResult.final_value),
         interest: Math.round(backendResult.interest_earned),
+        effectiveReturn: backendResult.effective_return,
+        monthlyPayment: backendResult.monthly_payment,
       };
     }
 
     // Fallback to frontend calculation for optimized scenarios
-    const monthlyRate = 0.08 / 12;
+    const monthlyRate = 0.0675 / 12; // 6.75% annual return
     const totalMonths = years * 12;
     const totalSaved = monthlySaving * totalMonths;
 
@@ -74,43 +79,32 @@ const Budget = ({ financialData, userProfile, realAnalysisResults }) => {
 
   return (
     <div className="space-y-6">
-      {/* Budget Overview */}
+      {/* Enhanced Budget Overview */}
       <div className="bg-gradient-to-r from-discovery-gold/10 to-discovery-blue/10 p-6 rounded-xl border border-discovery-gold/20">
         <h2 className="text-xl font-bold mb-2 text-black">Budget Management</h2>
         <p className="text-black mb-4">
           Track your spending and optimize your budget
         </p>
-        {realAnalysisResults && (
-          <div className="text-sm text-discovery-gold mb-4">
-            ✨ Based on your real financial data analysis
-          </div>
-        )}
 
         <div className="grid grid-cols-2 gap-4">
-          <div className="bg-white p-4 rounded-lg border border-discovery-gold/20">
-            <p className="text-sm text-black">Monthly Income</p>
-            <p className="text-2xl font-bold text-black">
+          <div className="text-center p-4 bg-white rounded-lg">
+            <p className="text-sm text-gray-600">Monthly Income</p>
+            <p className="text-2xl font-bold text-discovery-blue">
               R{totalIncome.toLocaleString()}
             </p>
-            <p className="text-xs text-black">Total available</p>
+            <p className="text-xs text-gray-500">Total available</p>
           </div>
-          <div className="bg-white p-4 rounded-lg border border-discovery-gold/20">
-            <p className="text-sm text-black">Available to Save</p>
-            <p className="text-2xl font-bold text-black">
+          <div className="text-center p-4 bg-white rounded-lg">
+            <p className="text-sm text-gray-600">Available to Save</p>
+            <p className="text-2xl font-bold text-discovery-gold">
               R{currentAvailable.toLocaleString()}
             </p>
-            <p className="text-xs text-black">Current savings potential</p>
+            <p className="text-xs text-gray-500">Current potential</p>
           </div>
         </div>
-      </div>
 
-      {/* Optimization Summary */}
-      {potentialMonthlySavings > 0 && (
-        <div className="bg-white p-6 rounded-xl border border-discovery-gold/20 shadow-sm">
-          <h3 className="text-lg font-semibold mb-4 text-discovery-blue">
-            💡 Optimization Opportunity
-          </h3>
-          <div className="grid grid-cols-2 gap-4">
+        {enhancedMode && (
+          <div className="mt-4 grid grid-cols-2 gap-4">
             <div className="text-center p-4 bg-discovery-blue/10 rounded-lg">
               <p className="text-sm text-gray-600">
                 Potential Additional Savings
@@ -119,6 +113,9 @@ const Budget = ({ financialData, userProfile, realAnalysisResults }) => {
                 R{potentialMonthlySavings.toLocaleString()}
               </p>
               <p className="text-xs text-gray-500">per month</p>
+              <p className="text-xs text-discovery-blue mt-1">
+                AI-powered recommendations
+              </p>
             </div>
             <div className="text-center p-4 bg-discovery-gold/10 rounded-lg">
               <p className="text-sm text-gray-600">Optimized Monthly Savings</p>
@@ -126,22 +123,30 @@ const Budget = ({ financialData, userProfile, realAnalysisResults }) => {
                 R{optimizedAvailable.toLocaleString()}
               </p>
               <p className="text-xs text-gray-500">with improvements</p>
+              <p className="text-xs text-discovery-gold mt-1">
+                Statistical modeling applied
+              </p>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Scenario Analysis */}
       <div className="bg-white p-6 rounded-xl border border-discovery-gold/20 shadow-sm">
         <h3 className="text-lg font-semibold mb-4 text-discovery-blue">
-          Scenario Analysis
+          Investment Growth Scenarios
         </h3>
         <p className="text-gray-600 mb-6">
-          See how your savings could grow over time with compound interest
+          See how your savings could grow over time with compound interest.
         </p>
         {annuityData && (
-          <div className="text-sm text-discovery-gold mb-4">
-            📊 Calculations powered by your backend analysis
+          <div className="text-sm text-discovery-gold mb-4 space-y-1 bg-discovery-blue/5 p-3 rounded-lg">
+            <div>📊 Calculations powered by enhanced backend analysis.</div>
+            {enhancedMode && (
+              <div className="text-xs text-gray-600">
+                Using optimized statistical modeling for accurate projections.
+              </div>
+            )}
           </div>
         )}
 
@@ -155,6 +160,7 @@ const Budget = ({ financialData, userProfile, realAnalysisResults }) => {
               </h4>
               <p className="text-sm text-gray-600">
                 Based on your current spending patterns
+                {enhancedMode && " with protected categories preserved"}.
               </p>
             </div>
 
@@ -180,7 +186,6 @@ const Budget = ({ financialData, userProfile, realAnalysisResults }) => {
                   {scenarioData.map((row, idx) => {
                     const { totalSaved, finalValue, interest } =
                       calculateCompoundGrowth(currentAvailable, row.years);
-
                     return (
                       <tr key={idx} className="border-b border-gray-100">
                         <td className="py-2 font-medium">{row.years}</td>
@@ -207,11 +212,12 @@ const Budget = ({ financialData, userProfile, realAnalysisResults }) => {
           <div className="mb-6">
             <div className="bg-discovery-gold/10 p-4 rounded-lg mb-4">
               <h4 className="font-semibold text-discovery-gold mb-2">
-                Scenario B: With Cost Optimizations (R
+                Scenario B: With AI Optimizations (R
                 {optimizedAvailable.toLocaleString()}/month)
               </h4>
               <p className="text-sm text-gray-600">
                 If you implement the AI-suggested budget optimizations
+                {enhancedMode && " from enhanced statistical analysis"}.
               </p>
             </div>
 
@@ -248,7 +254,6 @@ const Budget = ({ financialData, userProfile, realAnalysisResults }) => {
                     );
                     const extraValue =
                       optimizedResult.finalValue - currentResult.finalValue;
-
                     return (
                       <tr key={idx} className="border-b border-gray-100">
                         <td className="py-2 font-medium">{row.years}</td>
@@ -281,56 +286,59 @@ const Budget = ({ financialData, userProfile, realAnalysisResults }) => {
           <div className="space-y-2 text-sm">
             {currentAvailable > 0 && (
               <>
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-discovery-gold rounded-full"></div>
+                <div className="flex items-start space-x-2">
+                  <div className="w-2 h-2 bg-discovery-gold rounded-full mt-1.5 flex-shrink-0"></div>
                   <p>
-                    After 10 years: You'll have R
-                    {calculateCompoundGrowth(
-                      currentAvailable,
-                      10
-                    ).finalValue.toLocaleString()}{" "}
-                    (R
+                    After 10 years, your current savings could grow to{" "}
+                    <strong>
+                      R
+                      {calculateCompoundGrowth(
+                        currentAvailable,
+                        10
+                      ).finalValue.toLocaleString()}
+                    </strong>
+                    , earning R
                     {calculateCompoundGrowth(
                       currentAvailable,
                       10
                     ).interest.toLocaleString()}{" "}
-                    in interest)
+                    in interest.
                   </p>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-discovery-blue rounded-full"></div>
+                <div className="flex items-start space-x-2">
+                  <div className="w-2 h-2 bg-discovery-blue rounded-full mt-1.5 flex-shrink-0"></div>
                   <p>
-                    After 20 years: You'll have R
-                    {calculateCompoundGrowth(
-                      currentAvailable,
-                      20
-                    ).finalValue.toLocaleString()}{" "}
-                    (R
+                    After 20 years, this could become{" "}
+                    <strong>
+                      R
+                      {calculateCompoundGrowth(
+                        currentAvailable,
+                        20
+                      ).finalValue.toLocaleString()}
+                    </strong>
+                    , with R
                     {calculateCompoundGrowth(
                       currentAvailable,
                       20
                     ).interest.toLocaleString()}{" "}
-                    in interest)
-                  </p>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-discovery-gold rounded-full"></div>
-                  <p>
-                    Your money grows 2.4x from year 10 to year 20 due to
-                    compound interest!
+                    in interest, showcasing compound growth.
                   </p>
                 </div>
               </>
             )}
             {potentialMonthlySavings > 0 && (
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <div className="flex items-start space-x-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full mt-1.5 flex-shrink-0"></div>
                 <p>
-                  With optimizations: Extra R
-                  {(
-                    calculateCompoundGrowth(optimizedAvailable, 20).finalValue -
-                    calculateCompoundGrowth(currentAvailable, 20).finalValue
-                  ).toLocaleString()}{" "}
+                  With AI optimizations, you could have an extra{" "}
+                  <strong>
+                    R
+                    {(
+                      calculateCompoundGrowth(optimizedAvailable, 20)
+                        .finalValue -
+                      calculateCompoundGrowth(currentAvailable, 20).finalValue
+                    ).toLocaleString()}
+                  </strong>{" "}
                   after 20 years!
                 </p>
               </div>
@@ -338,31 +346,44 @@ const Budget = ({ financialData, userProfile, realAnalysisResults }) => {
           </div>
         </div>
 
-        {/* Calculation Assumptions */}
+        {/* Enhanced Calculation Assumptions */}
         <div className="bg-gray-50 p-4 rounded-lg">
           <h4 className="font-semibold text-gray-700 mb-2">
             Calculation Assumptions:
           </h4>
           <div className="text-xs text-gray-600 space-y-1">
-            <p>• 6.75% annual return (compounded monthly)</p>
-            <p>• Fixed monthly contributions at month-end</p>
+            {annuityData && Object.keys(annuityData).length > 0 ? (
+              <>
+                <p>
+                  • Backend calculations with enhanced statistical modeling.
+                </p>
+                <p>
+                  • Effective return rate:{" "}
+                  <strong>
+                    {annuityData["10"]?.effective_return?.toFixed(2)}%
+                  </strong>{" "}
+                  (volatility-adjusted).
+                </p>
+                <p>• Protected categories preserved in optimization.</p>
+              </>
+            ) : (
+              <>
+                <p>
+                  • <strong>6.75%</strong> annual return (compounded monthly).
+                </p>
+                <p>• Returns are estimates based on historical averages.</p>
+              </>
+            )}
             <p>
               • No taxes considered (use TFSA or retirement annuity for tax
-              benefits)
+              benefits).
             </p>
-            <p>• Returns are estimates based on historical averages</p>
-            <p>
-              • Inflation not factored in - consider 6% inflation for real
-              returns
-            </p>
-            {annuityData && (
-              <p>• Backend calculations ensure accuracy and consistency</p>
-            )}
+            <p>• Inflation is not factored in; real returns will be lower.</p>
           </div>
         </div>
       </div>
 
-      {/* Discovery Integration */}
+      {/* Discovery Integration with Enhanced Features */}
       <div className="bg-gradient-to-r from-discovery-gold/10 to-discovery-blue/10 p-6 rounded-xl border border-discovery-gold/20">
         <h3 className="text-lg font-semibold mb-4 text-discovery-blue">
           Discovery Vitality Integration
@@ -375,21 +396,25 @@ const Budget = ({ financialData, userProfile, realAnalysisResults }) => {
               </p>
               <p className="text-sm text-gray-600">
                 Budget management contributes to Vitality points
+                {enhancedMode && " (Enhanced tracking active)"}.
               </p>
             </div>
             <div className="text-right">
-              <p className="text-sm text-discovery-gold">+500 points</p>
+              <p className="text-sm text-discovery-gold">
+                +{enhancedMode ? "750" : "500"} points
+              </p>
               <p className="text-xs text-gray-400">This month</p>
             </div>
           </div>
-
           <div className="p-3 bg-white rounded-lg border border-discovery-gold/20">
             <p className="font-medium text-sm text-discovery-blue">
               Vitality Benefit
             </p>
             <p className="text-xs text-gray-600">
-              Maintaining a healthy budget earns Vitality points, reducing your
-              medical aid costs by up to 25%
+              Maintaining a healthy budget earns Vitality points, which can
+              reduce your medical aid costs.
+              {enhancedMode &&
+                " Enhanced analysis provides more accurate tracking for better rewards."}
             </p>
           </div>
         </div>
